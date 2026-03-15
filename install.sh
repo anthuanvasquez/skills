@@ -2,8 +2,8 @@
 
 # Configuration
 # Replace this with your actual repository URL
-REPO_URL="https://github.com/anthuanvasquez/agents-rules.git"
-TEMP_DIR="/tmp/agents-rules-temp-$(date +%s)"
+REPO_URL="https://github.com/anthuanvasquez/skills.git"
+TEMP_DIR="/tmp/skills-temp-$(date +%s)"
 
 # Colors
 GREEN='\033[0;32m'
