@@ -33,6 +33,7 @@ Deep technical expertise for building robust and scalable systems.
 | **API Design Principles** | REST and GraphQL best practices for maintainable APIs. |
 | **Error Handling Patterns** | Resilient error propagation and graceful degradation strategies. |
 | **TypeScript Expert** | Type-level programming, performance, and modern tooling mastery. |
+| **Perfect Code Review** | Structured pull request code review using the PERFECT framework. |
 
 ### Design & Frontend
 Building premium user interfaces and high-performance applications.
@@ -42,6 +43,24 @@ Building premium user interfaces and high-performance applications.
 | **Interface Design** | Expert guidance for dashboards, admin panels, and interactive tools. |
 | **Tailwind Design System** | Scalable UI patterns with Tailwind CSS v4 and design tokens. |
 | **React Best Practices** | Vercel-grade performance optimization for React and Next.js. |
+
+## Available Workflows
+
+Commands to streamline common development tasks.
+
+| Command | Description |
+| :--- | :--- |
+| **`/brainstorm`** | Structured Idea Exploration |
+| **`/commit`** | Create Atomic Commits |
+| **`/create`** | Create Application |
+| **`/debug`** | Systematic Problem Investigation |
+| **`/deploy`** | Production Deployment |
+| **`/enhance`** | Update Application |
+| **`/orchestrate`** | Multi-Agent Orchestration |
+| **`/plan`** | Project Planning Mode |
+| **`/preview`** | Preview Management |
+| **`/status`** | Show Status |
+| **`/test`** | Test Generation and Execution |
 
 ## License
 MIT
