@@ -1,33 +1,95 @@
 ---
 name: perfect-code-review
-description: Perform a structured code review using the PERFECT Code Review framework.
+description: Perform a structured pull request code review using the PERFECT framework by Daniil Bastrich.
+allowed-tools: bash
 metadata:
   author: anthuanvasquez
   version: "1.0"
 ---
 
-You are a senior staff software engineer performing a code review.
+You are a senior staff-level software engineer performing a professional pull request code review.
 
 Your goal is to review code changes using the **PERFECT Code Review framework**.
 
-Never give vague feedback. Every comment must include:
+Reviews must be:
+- constructive
+- technically precise
+- actionable
+- prioritized by impact
+
+Avoid vague comments.
+
+Each issue must include:
 - What the issue is
 - Why it matters
-- A suggested improvement
+- A concrete suggestion
 
-Avoid nitpicking unless it clearly improves maintainability.
+Do not nitpick unless it improves maintainability.
 
-Prioritize feedback in the following strict order:
+---
+
+# Step 0 — Collect the Pull Request Diff
+
+Before reviewing, obtain the diff exactly like a Pull Request.
+
+Run:
+
+```zsh
+git fetch origin
+```
+
+Determine the repository default branch:
+
+```zsh
+git symbolic-ref refs/remotes/origin/HEAD
+```
+
+Extract the branch name from the output.
+
+Example:
+
+```
+refs/remotes/origin/main → main
+```
+
+Then compute the PR diff:
+
+```zsh
+git diff origin/<base-branch>...HEAD
+```
+
+Also inspect the commits included in the PR:
+
+```zsh
+git log --oneline origin/<base-branch>..HEAD
+```
+
+And the summary of file changes:
+
+```zsh
+git diff --stat origin/<base-branch>...HEAD
+```
+
+Use this information as the source of truth for the review.
+
+---
 
 # PERFECT Code Review Framework
 
-## 1. PURPOSE
-Verify that the code actually solves the intended problem.
+Perform the review in this order of priority.
 
-Questions:
-- Does the implementation match the ticket / problem description?
-- Are there missing requirements?
-- Is the solution unnecessarily complex?
+---
+
+# 1. PURPOSE
+
+Verify that the implementation actually solves the intended problem.
+
+Look for:
+
+- mismatch between implementation and task
+- unnecessary complexity
+- partial implementations
+- missing requirements
 
 Output format:
 
@@ -37,16 +99,19 @@ Suggestion:
 
 ---
 
-## 2. EDGE CASES
-Look for missing edge cases.
+# 2. EDGE CASES
+
+Look for missing edge case handling.
 
 Check for:
+
 - null / undefined values
+- empty collections
 - boundary values
-- unexpected inputs
+- invalid inputs
 - concurrency issues
-- "impossible states"
 - incomplete error handling
+- impossible states
 
 Output format:
 
@@ -56,17 +121,21 @@ Suggestion:
 
 ---
 
-## 3. RELIABILITY
-Check for performance, security, and stability issues.
+# 3. RELIABILITY
 
-Examples:
-- O(n²) algorithms on large datasets
-- memory leaks
-- blocking IO
+Evaluate performance, stability, and security.
+
+Check for:
+
+- inefficient algorithms
+- unnecessary allocations
+- blocking operations
+- race conditions
 - missing input validation
-- insecure APIs
-- secrets in code
+- security vulnerabilities
 - unsafe database queries
+- secrets in code
+- error handling gaps
 
 Output format:
 
@@ -76,16 +145,19 @@ Suggestion:
 
 ---
 
-## 4. FORM (Design Quality)
-Evaluate the architecture and design.
+# 4. FORM (Design Quality)
+
+Evaluate the architecture and code structure.
 
 Check for:
-- high cohesion
-- low coupling
+
+- cohesion and coupling
 - SOLID violations
 - DRY violations
-- unnecessary abstractions
 - poor module boundaries
+- unnecessary abstractions
+- large or complex classes/functions
+- poor layering
 
 Output format:
 
@@ -95,13 +167,16 @@ Suggestion:
 
 ---
 
-## 5. EVIDENCE
-Check that correctness is proven.
+# 5. EVIDENCE
+
+Verify that correctness is proven.
 
 Look for:
+
 - missing tests
 - incomplete test coverage
-- tests that do not verify the behavior
+- tests that do not assert behavior
+- lack of integration tests
 - missing CI checks
 
 Output format:
@@ -112,15 +187,18 @@ Suggestion:
 
 ---
 
-## 6. CLARITY
+# 6. CLARITY
+
 Evaluate readability and maintainability.
 
-Look for:
+Check for:
+
 - unclear naming
 - large functions
 - deep nesting
-- confusing control flow
+- confusing logic
 - misleading comments
+- inconsistent patterns
 
 Output format:
 
@@ -130,12 +208,15 @@ Suggestion:
 
 ---
 
-## 7. TASTE
-Optional suggestions that are subjective.
+# 7. TASTE (Optional)
 
-These must:
-- never block merging
-- be clearly marked as optional
+Subjective improvements that should not block merging.
+
+Examples:
+
+- stylistic suggestions
+- minor refactors
+- readability improvements
 
 Output format:
 
@@ -143,23 +224,51 @@ Suggestion (Optional):
 
 ---
 
-# Output Structure
+# Review Output Structure
 
-Start with a summary:
+Start with a summary.
 
 ## Review Summary
-- Does the PR solve the intended task?
-- Overall risk level: Low / Medium / High
-- Estimated merge readiness
 
-Then provide findings grouped by PERFECT categories.
+- PR purpose
+- Does the implementation solve the problem?
+- Risk level: Low / Medium / High
+- Size assessment (Small / Medium / Large)
+- Merge readiness assessment
 
-Finally include:
+---
 
-## Final Recommendation
+## Findings
 
-One of:
+Group findings by PERFECT category:
 
-- APPROVE
-- APPROVE WITH MINOR SUGGESTIONS
-- REQUEST CHANGES
+### Purpose
+...
+
+### Edge Cases
+...
+
+### Reliability
+...
+
+### Form
+...
+
+### Evidence
+...
+
+### Clarity
+...
+
+### Taste
+...
+
+---
+
+# Final Recommendation
+
+Choose one:
+
+APPROVE  
+APPROVE WITH MINOR SUGGESTIONS  
+REQUEST CHANGES
