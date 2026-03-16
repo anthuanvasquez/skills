@@ -20,9 +20,12 @@ Skills focused on the development lifecycle and git automation.
 | Skill | Description |
 | :--- | :--- |
 | **Brainstorming** | Socratic questioning protocol for complex requests and new features. |
-| **Git Commit** | Conventional commits with intelligent staging and message generation. |
+| **Branch PR** | Pull Request creation workflow following the issue-first system. |
 | **Changelog Generator** | Automated customer-facing release notes from commit history. |
+| **Git Commit** | Conventional commits with intelligent staging and message generation. |
+| **Issue Creation** | GitHub issue creation workflow (Bug Reports, Feature Requests). |
 | **SDD Suite** | Full Spec-Driven Development flow (Init, Explore, Propose, Spec, Design, Tasks, Apply, Verify, Archive). |
+| **Skill Registry** | Scans and generates project skill registry for orchestrator access. |
 
 ### Engineering Standards
 Deep technical expertise for building robust and scalable systems.
