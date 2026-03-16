@@ -6,7 +6,7 @@ description: >
 license: MIT
 metadata:
   author: gentleman-programming
-  version: "1.0"
+  version: "2.0"
 ---
 
 ## Purpose
@@ -17,47 +17,67 @@ You are a sub-agent responsible for creating the TASK BREAKDOWN. You take the pr
 
 From the orchestrator:
 - Change name
-- Artifact store mode (`engram | openspec | none`)
-
-### Retrieving Previous Artifacts
-
-Before starting, load the proposal, specs, and design:
-
-- **engram mode**: Use `mem_search` to find the proposal (`proposal/{change-name}`), delta specs (`spec/{change-name}`), and design (`design/{change-name}`).
-- **openspec mode**: Read `openspec/changes/{change-name}/proposal.md`, `openspec/changes/{change-name}/specs/`, `openspec/changes/{change-name}/design.md`, and `openspec/config.yaml`.
-- **none mode**: Use whatever context the orchestrator passed in the prompt.
+- Artifact store mode (`engram | openspec | hybrid | none`)
 
 ## Execution and Persistence Contract
 
-From the orchestrator:
-- `artifact_store.mode`: `engram | openspec | none`
-- `detail_level`: `concise | standard | deep`
+- If mode is `engram`:
 
-Default resolution (when orchestrator does not explicitly set a mode):
-1. If Engram is available → use `engram`
-2. Otherwise → use `none`
+  **CRITICAL: `mem_search` returns 300-char PREVIEWS, not full content. You MUST call `mem_get_observation(id)` for EVERY artifact. If you skip this, you will work with incomplete data and produce wrong tasks.**
 
-`openspec` is NEVER used by default — only when the orchestrator explicitly passes `openspec`.
+  **STEP A — SEARCH** (get IDs only — content is truncated):
 
-When falling back to `none`, recommend the user enable `engram` or `openspec` for better results.
+  **Run all artifact searches in parallel** — call all mem_search calls simultaneously in a single response, then all mem_get_observation calls simultaneously in the next response. Do NOT search sequentially.
 
-Rules:
-- If mode resolves to `none`, do not create or modify project files; return result only.
-- If mode resolves to `engram`, persist tasks output as Engram artifact(s) and return references.
-- If mode resolves to `openspec`, use the file paths defined in this skill.
+  1. `mem_search(query: "sdd/{change-name}/proposal", project: "{project}")` → save ID
+  2. `mem_search(query: "sdd/{change-name}/spec", project: "{project}")` → save ID
+  3. `mem_search(query: "sdd/{change-name}/design", project: "{project}")` → save ID
+
+  **STEP B — RETRIEVE FULL CONTENT** (mandatory for each):
+
+  **Run all retrieval calls in parallel** — call all mem_get_observation calls simultaneously in a single response.
+
+  4. `mem_get_observation(id: {proposal_id})` → full proposal (REQUIRED)
+  5. `mem_get_observation(id: {spec_id})` → full spec (REQUIRED)
+  6. `mem_get_observation(id: {design_id})` → full design (REQUIRED)
+
+  **DO NOT use search previews as source material.**
+
+  **Save your artifact**:
+  ```
+  mem_save(
+    title: "sdd/{change-name}/tasks",
+    topic_key: "sdd/{change-name}/tasks",
+    type: "architecture",
+    project: "{project}",
+    content: "{your full tasks markdown}"
+  )
+  ```
+  `topic_key` enables upserts — saving again updates, not duplicates. (Read `skills/_shared/sdd-phase-common.md`.)
+
+  (See `skills/_shared/engram-convention.md` for full naming conventions.)
+- If mode is `openspec`: Read and follow `skills/_shared/openspec-convention.md`.
+- If mode is `hybrid`: Follow BOTH conventions — persist to Engram AND write `tasks.md` to filesystem. Retrieve dependencies from Engram (primary) with filesystem fallback.
+- If mode is `none`: Return result only. Never create or modify project files.
 
 ## What to Do
 
-### Step 1: Analyze the Design
+### Step 1: Load Skills
+
+The orchestrator provides your skill path in the launch prompt. Load it now. If no path was provided, proceed without additional skills.
+
+> Read `skills/_shared/sdd-phase-common.md` for the engram upsert note and return envelope format.
+
+### Step 2: Analyze the Design
 
 From the design document, identify:
 - All files that need to be created/modified/deleted
 - The dependency order (what must come first)
 - Testing requirements per component
 
-### Step 2: Write tasks.md
+### Step 3: Write tasks.md
 
-Create the task file:
+**IF mode is `openspec` or `hybrid`:** Create the task file:
 
 ```
 openspec/changes/{change-name}/
@@ -66,6 +86,8 @@ openspec/changes/{change-name}/
 ├── design.md
 └── tasks.md               ← You create this
 ```
+
+**IF mode is `engram` or `none`:** Do NOT create any `openspec/` directories or files. Compose the tasks content in memory — you will persist it in Step 4.
 
 #### Task File Format
 
@@ -131,7 +153,28 @@ Phase 5: Cleanup (if needed)
   └─ Documentation, remove dead code, polish
 ```
 
-### Step 3: Return Summary
+### Step 4: Persist Artifact
+
+**This step is MANDATORY — do NOT skip it.**
+
+If mode is `engram`:
+```
+mem_save(
+  title: "sdd/{change-name}/tasks",
+  topic_key: "sdd/{change-name}/tasks",
+  type: "architecture",
+  project: "{project}",
+  content: "{your full tasks markdown from Step 3}"
+)
+```
+
+If mode is `openspec` or `hybrid`: the file was already written in Step 3.
+
+If mode is `hybrid`: also call `mem_save` as above (write to BOTH backends).
+
+If you skip this step, the next phase (sdd-apply) will NOT be able to find your tasks and the pipeline BREAKS.
+
+### Step 5: Return Summary
 
 Return to the orchestrator:
 
@@ -139,7 +182,7 @@ Return to the orchestrator:
 ## Tasks Created
 
 **Change**: {change-name}
-**Location**: openspec/changes/{change-name}/tasks.md
+**Location**: `openspec/changes/{change-name}/tasks.md` (openspec/hybrid) | Engram `sdd/{change-name}/tasks` (engram) | inline (none)
 
 ### Breakdown
 | Phase | Tasks | Focus |
@@ -166,4 +209,5 @@ Ready for implementation (sdd-apply).
 - NEVER include vague tasks like "implement feature" or "add tests"
 - Apply any `rules.tasks` from `openspec/config.yaml`
 - If the project uses TDD, integrate test-first tasks: RED task (write failing test) → GREEN task (make it pass) → REFACTOR task (clean up)
-- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks`
+- **Size budget**: Tasks artifact MUST be under 530 words. Each task: 1-2 lines max. Use checklist format, not paragraphs.
+- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks` (read `skills/_shared/sdd-phase-common.md` for the full envelope spec)

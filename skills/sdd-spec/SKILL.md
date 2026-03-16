@@ -6,7 +6,7 @@ description: >
 license: MIT
 metadata:
   author: gentleman-programming
-  version: "1.0"
+  version: "2.0"
 ---
 
 ## Purpose
@@ -17,48 +17,64 @@ You are a sub-agent responsible for writing SPECIFICATIONS. You take the proposa
 
 From the orchestrator:
 - Change name
-- Artifact store mode (`engram | openspec | none`)
-
-### Retrieving Previous Artifacts
-
-Before starting, load the proposal and any existing specs:
-
-- **engram mode**: Use `mem_search` to find the proposal for this change (`proposal/{change-name}`) and any existing specs (`spec/`).
-- **openspec mode**: Read `openspec/changes/{change-name}/proposal.md` for the proposal, `openspec/specs/` for existing specs, and `openspec/config.yaml` for project config.
-- **none mode**: Use whatever context the orchestrator passed in the prompt.
+- Artifact store mode (`engram | openspec | hybrid | none`)
 
 ## Execution and Persistence Contract
 
-From the orchestrator:
-- `artifact_store.mode`: `engram | openspec | none`
-- `detail_level`: `concise | standard | deep`
+- If mode is `engram`:
 
-Default resolution (when orchestrator does not explicitly set a mode):
-1. If Engram is available → use `engram`
-2. Otherwise → use `none`
+  **CRITICAL: `mem_search` returns 300-char PREVIEWS, not full content. You MUST call `mem_get_observation(id)` for EVERY artifact. If you skip this, you will work with incomplete data and produce wrong specs.**
 
-`openspec` is NEVER used by default — only when the orchestrator explicitly passes `openspec`.
+  **STEP A — SEARCH** (get IDs only — content is truncated):
+  1. `mem_search(query: "sdd/{change-name}/proposal", project: "{project}")` → save ID
 
-When falling back to `none`, recommend the user enable `engram` or `openspec` for better results.
+  **STEP B — RETRIEVE FULL CONTENT** (mandatory):
+  2. `mem_get_observation(id: {proposal_id})` → full proposal content (REQUIRED)
 
-Rules:
-- If mode resolves to `none`, do not create or modify project files; return result only.
-- If mode resolves to `engram`, persist spec output as Engram artifact(s) and return references.
-- If mode resolves to `openspec`, use the file paths defined in this skill.
+  **DO NOT use search previews as source material.**
+
+  If specs span multiple domains, concatenate into a single artifact with domain headers.
+
+  **Save your artifact**:
+  ```
+  mem_save(
+    title: "sdd/{change-name}/spec",
+    topic_key: "sdd/{change-name}/spec",
+    type: "architecture",
+    project: "{project}",
+    content: "{your full spec markdown — all domains concatenated}"
+  )
+  ```
+  `topic_key` enables upserts — saving again updates, not duplicates. (Read `skills/_shared/sdd-phase-common.md`.)
+
+  (See `skills/_shared/engram-convention.md` for full naming conventions.)
+- If mode is `openspec`: Read and follow `skills/_shared/openspec-convention.md`.
+- If mode is `hybrid`: Follow BOTH conventions — persist to Engram (single concatenated artifact) AND write domain files to filesystem.
+- If mode is `none`: Return result only. Never create or modify project files.
 
 ## What to Do
 
-### Step 1: Identify Affected Domains
+### Step 1: Load Skills
+
+The orchestrator provides your skill path in the launch prompt. Load it now. If no path was provided, proceed without additional skills.
+
+> Read `skills/_shared/sdd-phase-common.md` for the engram upsert note and return envelope format.
+
+### Step 2: Identify Affected Domains
 
 From the proposal's "Affected Areas", determine which spec domains are touched. Group changes by domain (e.g., `auth/`, `payments/`, `ui/`).
 
-### Step 2: Read Existing Specs
+### Step 3: Read Existing Specs
 
-If `openspec/specs/{domain}/spec.md` exists, read it to understand CURRENT behavior. Your delta specs describe CHANGES to this behavior.
+**IF mode is `openspec` or `hybrid`:** If `openspec/specs/{domain}/spec.md` exists, read it to understand CURRENT behavior. Your delta specs describe CHANGES to this behavior.
 
-### Step 3: Write Delta Specs
+**IF mode is `engram`:** Existing specs were already retrieved from Engram in the Persistence Contract. Skip filesystem reads.
 
-Create specs inside the change folder:
+**IF mode is `none`:** Skip — no existing specs to read.
+
+### Step 4: Write Delta Specs
+
+**IF mode is `openspec` or `hybrid`:** Create specs inside the change folder:
 
 ```
 openspec/changes/{change-name}/
@@ -67,6 +83,8 @@ openspec/changes/{change-name}/
     └── {domain}/
         └── spec.md          ← Delta spec
 ```
+
+**IF mode is `engram` or `none`:** Do NOT create any `openspec/` directories or files. Compose the spec content in memory — you will persist it in Step 5.
 
 #### Delta Spec Format
 
@@ -138,7 +156,28 @@ The system {MUST/SHALL/SHOULD} {behavior}.
 - THEN {outcome}
 ```
 
-### Step 4: Return Summary
+### Step 5: Persist Artifact
+
+**This step is MANDATORY — do NOT skip it.**
+
+If mode is `engram`:
+```
+mem_save(
+  title: "sdd/{change-name}/spec",
+  topic_key: "sdd/{change-name}/spec",
+  type: "architecture",
+  project: "{project}",
+  content: "{your full spec markdown from Step 4 — all domains concatenated}"
+)
+```
+
+If mode is `openspec` or `hybrid`: the file was already written in Step 4.
+
+If mode is `hybrid`: also call `mem_save` as above (write to BOTH backends).
+
+If you skip this step, the next phase (sdd-tasks) will NOT be able to find your specs and the pipeline BREAKS.
+
+### Step 6: Return Summary
 
 Return to the orchestrator:
 
@@ -172,7 +211,8 @@ Ready for design (sdd-design). If design already exists, ready for tasks (sdd-ta
 - Keep scenarios TESTABLE — someone should be able to write an automated test from each one
 - DO NOT include implementation details in specs — specs describe WHAT, not HOW
 - Apply any `rules.specs` from `openspec/config.yaml`
-- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks`
+- **Size budget**: Spec artifact MUST be under 650 words. Prefer requirement tables over narrative descriptions. Each scenario: 3-5 lines max.
+- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks` (read `skills/_shared/sdd-phase-common.md` for the full envelope spec)
 
 ## RFC 2119 Keywords Quick Reference
 

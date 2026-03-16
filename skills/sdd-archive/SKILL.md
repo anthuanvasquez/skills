@@ -6,7 +6,7 @@ description: >
 license: MIT
 metadata:
   author: gentleman-programming
-  version: "1.0"
+  version: "2.0"
 ---
 
 ## Purpose
@@ -17,39 +17,64 @@ You are a sub-agent responsible for ARCHIVING. You merge delta specs into the ma
 
 From the orchestrator:
 - Change name
-- Artifact store mode (`engram | openspec | none`)
-
-### Retrieving Previous Artifacts
-
-Before archiving, load the verification report and all change artifacts:
-
-- **engram mode**: Use `mem_search` to find the verification report (`verify-report/{change-name}`), proposal (`proposal/{change-name}`), delta specs (`spec/{change-name}`), design (`design/{change-name}`), and tasks (`tasks/{change-name}`).
-- **openspec mode**: Read `openspec/changes/{change-name}/verify-report.md`, and all contents of `openspec/changes/{change-name}/` (proposal, specs, design, tasks). Also read `openspec/config.yaml`.
-- **none mode**: Use whatever context the orchestrator passed in the prompt.
+- Artifact store mode (`engram | openspec | hybrid | none`)
 
 ## Execution and Persistence Contract
 
-From the orchestrator:
-- `artifact_store.mode`: `engram | openspec | none`
+- If mode is `engram`:
 
-Default resolution (when orchestrator does not explicitly set a mode):
-1. If Engram is available → use `engram`
-2. Otherwise → use `none`
+  **CRITICAL: `mem_search` returns 300-char PREVIEWS, not full content. You MUST call `mem_get_observation(id)` for EVERY artifact. If you skip this, you will archive with incomplete data.**
 
-`openspec` is NEVER used by default — only when the orchestrator explicitly passes `openspec`.
+  **STEP A — SEARCH** (get IDs only — content is truncated):
+  1. `mem_search(query: "sdd/{change-name}/proposal", project: "{project}")` → save ID
+  2. `mem_search(query: "sdd/{change-name}/spec", project: "{project}")` → save ID
+  3. `mem_search(query: "sdd/{change-name}/design", project: "{project}")` → save ID
+  4. `mem_search(query: "sdd/{change-name}/tasks", project: "{project}")` → save ID
+  5. `mem_search(query: "sdd/{change-name}/verify-report", project: "{project}")` → save ID
 
-When falling back to `none`, recommend the user enable `engram` or `openspec` for better results.
+  **STEP B — RETRIEVE FULL CONTENT** (mandatory for each):
+  6. `mem_get_observation(id: {proposal_id})` → full proposal
+  7. `mem_get_observation(id: {spec_id})` → full spec
+  8. `mem_get_observation(id: {design_id})` → full design
+  9. `mem_get_observation(id: {tasks_id})` → full tasks
+  10. `mem_get_observation(id: {verify_report_id})` → full verification report
 
-Rules:
-- If mode resolves to `none`, do not perform archive file operations; return closure summary only.
-- If mode resolves to `engram`, persist final closure and merged-state summary in Engram.
-- If mode resolves to `openspec`, perform merge and archive folder moves as defined in this skill.
+  **DO NOT use search previews as source material.**
+
+  **Record all observation IDs** — include them in the archive report for full traceability.
+
+  **Save your artifact**:
+  ```
+  mem_save(
+    title: "sdd/{change-name}/archive-report",
+    topic_key: "sdd/{change-name}/archive-report",
+    type: "architecture",
+    project: "{project}",
+    content: "{your archive report with all observation IDs for lineage}"
+  )
+  ```
+  `topic_key` enables upserts — saving again updates, not duplicates. (Read `skills/_shared/sdd-phase-common.md`.)
+
+  (See `skills/_shared/engram-convention.md` for full naming conventions.)
+- If mode is `openspec`: Read and follow `skills/_shared/openspec-convention.md`. Perform merge and archive folder moves.
+- If mode is `hybrid`: Follow BOTH conventions — persist archive report to Engram (with observation IDs) AND perform filesystem merge + archive folder moves.
+- If mode is `none`: Return closure summary only. Do not perform archive file operations.
 
 ## What to Do
 
-### Step 1: Sync Delta Specs to Main Specs
+### Step 1: Load Skills
 
-For each delta spec in `openspec/changes/{change-name}/specs/`:
+The orchestrator provides your skill path in the launch prompt. Load it now. If no path was provided, proceed without additional skills.
+
+> Read `skills/_shared/sdd-phase-common.md` for the engram upsert note and return envelope format.
+
+### Step 2: Sync Delta Specs to Main Specs
+
+**IF mode is `engram`:** Skip filesystem sync — artifacts live in Engram only. The archive report (Step 5) records all observation IDs for traceability.
+
+**IF mode is `none`:** Skip — no artifacts to sync.
+
+**IF mode is `openspec` or `hybrid`:** For each delta spec in `openspec/changes/{change-name}/specs/`:
 
 #### If Main Spec Exists (`openspec/specs/{domain}/spec.md`)
 
@@ -77,9 +102,13 @@ openspec/changes/{change-name}/specs/{domain}/spec.md
   → openspec/specs/{domain}/spec.md
 ```
 
-### Step 2: Move to Archive
+### Step 3: Move to Archive
 
-Move the entire change folder to archive with date prefix:
+**IF mode is `engram`:** Skip — there are no `openspec/` directories to move. The archive report in Engram serves as the audit trail.
+
+**IF mode is `none`:** Skip — no filesystem operations.
+
+**IF mode is `openspec` or `hybrid`:** Move the entire change folder to archive with date prefix:
 
 ```
 openspec/changes/{change-name}/
@@ -88,15 +117,38 @@ openspec/changes/{change-name}/
 
 Use today's date in ISO format (e.g., `2026-02-16`).
 
-### Step 3: Verify Archive
+### Step 4: Verify Archive
 
-Confirm:
+**IF mode is `openspec` or `hybrid`:** Confirm:
 - [ ] Main specs updated correctly
 - [ ] Change folder moved to archive
 - [ ] Archive contains all artifacts (proposal, specs, design, tasks)
 - [ ] Active changes directory no longer has this change
 
-### Step 4: Return Summary
+**IF mode is `engram`:** Confirm all artifact observation IDs are recorded in the archive report.
+
+**IF mode is `none`:** Skip verification — no persisted artifacts.
+
+### Step 5: Persist Archive Report
+
+**This step is MANDATORY — do NOT skip it.**
+
+If mode is `engram`:
+```
+mem_save(
+  title: "sdd/{change-name}/archive-report",
+  topic_key: "sdd/{change-name}/archive-report",
+  type: "architecture",
+  project: "{project}",
+  content: "{your archive report with all observation IDs for lineage}"
+)
+```
+
+If mode is `openspec` or `hybrid`: the file was already written in Step 3.
+
+If mode is `hybrid`: also call `mem_save` as above (write to BOTH backends).
+
+### Step 6: Return Summary
 
 Return to the orchestrator:
 
@@ -104,7 +156,7 @@ Return to the orchestrator:
 ## Change Archived
 
 **Change**: {change-name}
-**Archived to**: openspec/changes/archive/{YYYY-MM-DD}-{change-name}/
+**Archived to**: `openspec/changes/archive/{YYYY-MM-DD}-{change-name}/` (openspec/hybrid) | Engram archive report (engram) | inline (none)
 
 ### Specs Synced
 | Domain | Action | Details |
@@ -136,4 +188,4 @@ Ready for the next change.
 - The archive is an AUDIT TRAIL — never delete or modify archived changes
 - If `openspec/changes/archive/` doesn't exist, create it
 - Apply any `rules.archive` from `openspec/config.yaml`
-- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks`
+- Return a structured envelope with: `status`, `executive_summary`, `detailed_report` (optional), `artifacts`, `next_recommended`, and `risks` (read `skills/_shared/sdd-phase-common.md` for the full envelope spec)
