@@ -1,6 +1,6 @@
 # Skills
 
-Repository to hold standardized guidance, agent rules, and scaffold templates for applying AI agents (Google Antigravity, Google Gemini) safely and productively in engineering workflows.
+Repository to hold standardized guidance, agent rules, and scaffold templates for applying AI agents (Google Antigravity, Google Gemini & OpenCode) safely and productively in engineering workflows.
 
 ## Quick Start
 
@@ -10,7 +10,7 @@ Initialize a new project with the agents configuration using the following comma
 curl -fsSL https://raw.githubusercontent.com/anthuanvasquez/skills/main/install.sh | bash
 ```
 
-This will prompt you for a project name and configure **Google Antigravity** and **Google Gemini** automatically.
+This will prompt you for a project name and configure **Google Antigravity**, **OpenCode** and **Google Gemini** automatically.
 
 ## Available Skills
 
@@ -26,6 +26,7 @@ Skills focused on the development lifecycle and git automation.
 | **Issue Creation** | GitHub issue creation workflow (Bug Reports, Feature Requests). |
 | **SDD Suite** | Full Spec-Driven Development flow (Init, Explore, Propose, Spec, Design, Tasks, Apply, Verify, Archive). |
 | **Skill Registry** | Scans and generates project skill registry for orchestrator access. |
+| **Second Brain Architect** | Expert guidance for notes taking and knowledge generation. |
 
 ### Engineering Standards
 Deep technical expertise for building robust and scalable systems.
@@ -48,7 +49,6 @@ Building premium user interfaces and high-performance applications.
 | **React Best Practices** | Vercel-grade performance optimization for React and Next.js. |
 
 ## Available Workflows
-
 Commands to streamline common development tasks.
 
 | Command | Description |
@@ -64,6 +64,14 @@ Commands to streamline common development tasks.
 | **`/preview`** | Preview Management |
 | **`/status`** | Show Status |
 | **`/test`** | Test Generation and Execution |
+
+
+## Test
+
+```zsh
+docker build -t test-skills-installer .
+docker run -it -v $(pwd):/home/testuser/skills test-skills-installer bash
+```
 
 ## License
 MIT

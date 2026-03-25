@@ -1,112 +1,92 @@
 #!/bin/bash
 
-# Configuration
 REPO_URL="https://github.com/anthuanvasquez/skills.git"
 TEMP_DIR="/tmp/skills-temp-$(date +%s)"
+GLOBAL_SKILLS_DIR="$HOME/.agents/skills"
 
-# Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-echo -e "${BLUE}=== AI Project Bootstrapper ===${NC}"
+echo -e "${BLUE}=== AI Skills Global Bootstrapper ===${NC}"
 
-# 1. Project Name
-read -p "Enter project name (will create directory or use existing if '.'): " PROJECT_NAME
-if [ -z "$PROJECT_NAME" ]; then
-    echo -e "${RED}Error: Project name cannot be empty.${NC}"
-    exit 1
-fi
-
-if [ "$PROJECT_NAME" != "." ]; then
-    if [ -d "$PROJECT_NAME" ]; then
-        echo -e "${YELLOW}Directory $PROJECT_NAME already exists.${NC}"
-        read -p "Do you want to continue and potentially overwrite files? (y/n) " OVERWRITE
-        if [[ "$OVERWRITE" != "y" ]]; then
-            exit 1
-        fi
-    else
-        mkdir -p "$PROJECT_NAME"
-    fi
-fi
-
-# 2. Tool Selection
-echo -e "\n${BLUE}Which AI agents do you want to configure?${NC}"
-echo "1) Google Antigravity (.agent)"
-echo "2) Google Gemini CLI (.gemini)"
-echo "3) Both"
-read -p "Select option (1-3): " OPTION
-
-# 3. Clone Repository
 echo -e "\n${BLUE}Fetching configuration files...${NC}"
+
 if [ -d "skills" ] && [ -d "workflows" ]; then
-  # Local usage (dev mode)
-  SOURCE_DIR="."
+  SOURCE_DIR="$(pwd)"
   echo "Using local source files."
 else
-  # Remote usage (curl mode)
   git clone --depth 1 "$REPO_URL" "$TEMP_DIR" > /dev/null 2>&1
+  
   if [ $? -ne 0 ]; then
-      echo -e "${RED}Error cloning repository. Please check REPO_URL in script.${NC}"
-      exit 1
+    echo -e "${RED}Error cloning repository. Please check REPO_URL in script.${NC}"
+    exit 1
   fi
   SOURCE_DIR="$TEMP_DIR"
 fi
 
-# 4. Copy Files
-echo -e "\n${GREEN}Setting up $PROJECT_NAME...${NC}"
+echo -e "\n${BLUE}Installing skills globally to ${GLOBAL_SKILLS_DIR}...${NC}"
 
-install_antigravity() {
-    echo "  -> Configuring Google Antigravity..."
-    mkdir -p "$PROJECT_NAME/.agent"
+mkdir -p "$HOME/.agents"
+
+if [ -d "$GLOBAL_SKILLS_DIR" ]; then
+  rm -rf "$GLOBAL_SKILLS_DIR"
+fi
+
+cp -r "$SOURCE_DIR/skills" "$GLOBAL_SKILLS_DIR"
+echo -e "${GREEN}Global skills installed!${NC}"
+
+echo -e "\n${BLUE}Which AI platforms do you want to configure? (Space-separated, e.g. '1 2', or '4' for all)${NC}"
+echo "1) Google Gemini CLI"
+echo "2) Google Antigravity"
+echo "3) OpenCode"
+echo "4) All of the above"
+read -p "Select options: " OPTIONS
+
+setup_platform() {
+  local PLATFORM_NAME=$1
+  local TARGET_DIR=$2
+  local SKILLS_LINK=$3
+  local AGENTS_FILE=$4
     
-    if [ -d "$SOURCE_DIR/skills" ]; then
-        cp -r "$SOURCE_DIR/skills" "$PROJECT_NAME/.agent/"
-    fi
-    if [ -d "$SOURCE_DIR/workflows" ]; then
-        cp -r "$SOURCE_DIR/workflows" "$PROJECT_NAME/.agent/"
-    fi
+  echo "  -> Configuring $PLATFORM_NAME..."
+  mkdir -p "$TARGET_DIR"
+    
+  if [ -L "$SKILLS_LINK" ] || [ -d "$SKILLS_LINK" ]; then
+    rm -rf "$SKILLS_LINK"
+  fi
+  ln -s "$GLOBAL_SKILLS_DIR" "$SKILLS_LINK"
+    
+  if [ -f "$SOURCE_DIR/GEMINI.md" ]; then
+    cp "$SOURCE_DIR/GEMINI.md" "$AGENTS_FILE"
+  fi
 }
 
-install_gemini() {
-    echo "  -> Configuring Google Gemini CLI..."
-    mkdir -p "$PROJECT_NAME/.gemini"
-    
-    if [ -d "$SOURCE_DIR/skills" ]; then
-        cp -r "$SOURCE_DIR/skills" "$PROJECT_NAME/.gemini/"
-    fi
-    if [ -d "$SOURCE_DIR/workflows" ]; then
-        cp -r "$SOURCE_DIR/workflows" "$PROJECT_NAME/.gemini/"
-    fi
-    if [ -f "$SOURCE_DIR/GEMINI.md" ]; then
-        cp "$SOURCE_DIR/GEMINI.md" "$PROJECT_NAME/.gemini/"
-    fi
-}
+for OPT in $OPTIONS; do
+  case $OPT in
+    1) 
+      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/GEMINI.md"
+      ;;
+    2) 
+      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" "$HOME/.gemini/AGENTS.md"
+      ;;
+    3) 
+      setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
+      ;;
+    4)
+      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/GEMINI.md"
+      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" "$HOME/.gemini/AGENTS.md"
+      setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
+      break
+      ;;
+  esac
+done
 
-case $OPTION in
-    1) install_antigravity ;;
-    2) install_gemini ;;
-    3)
-       install_antigravity
-       install_gemini
-       ;;
-    *) 
-       echo -e "${RED}Invalid option${NC}"
-       if [ "$SOURCE_DIR" == "$TEMP_DIR" ]; then rm -rf "$TEMP_DIR"; fi
-       exit 1
-       ;;
-esac
-
-# 5. Cleanup
 if [ "$SOURCE_DIR" == "$TEMP_DIR" ]; then
-    rm -rf "$TEMP_DIR"
+  rm -rf "$TEMP_DIR"
 fi
 
-echo -e "\n${GREEN}✅ Project $PROJECT_NAME ready!${NC}"
-if [ "$PROJECT_NAME" == "." ]; then
-    echo "Location: $(pwd)"
-else
-    echo "Location: $(pwd)/$PROJECT_NAME"
-fi
+echo -e "\n${GREEN}✅ Installation complete!${NC}"
+
