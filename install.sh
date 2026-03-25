@@ -59,25 +59,31 @@ setup_platform() {
   fi
   ln -s "$GLOBAL_SKILLS_DIR" "$SKILLS_LINK"
     
-  if [ -f "$SOURCE_DIR/GEMINI.md" ]; then
-    cp "$SOURCE_DIR/GEMINI.md" "$AGENTS_FILE"
+  # Only copy AGENTS.md if a target path was provided
+  if [ -n "$AGENTS_FILE" ] && [ -f "$SOURCE_DIR/AGENTS.md" ]; then
+    cp "$SOURCE_DIR/AGENTS.md" "$AGENTS_FILE"
+  fi
+  
+  if [ "$PLATFORM_NAME" == "Google Gemini CLI" ] && [ -d "$SOURCE_DIR/commands" ]; then
+    cp -r "$SOURCE_DIR/commands" "$TARGET_DIR/"
   fi
 }
 
 for OPT in $OPTIONS; do
   case $OPT in
     1) 
-      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/GEMINI.md"
+      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/AGENTS.md"
       ;;
     2) 
-      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" "$HOME/.gemini/AGENTS.md"
+      # Pass empty string for AGENTS_FILE to skip copying it for Antigravity
+      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" ""
       ;;
     3) 
       setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
       ;;
     4)
-      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/GEMINI.md"
-      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" "$HOME/.gemini/AGENTS.md"
+      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/AGENTS.md"
+      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" ""
       setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
       break
       ;;
