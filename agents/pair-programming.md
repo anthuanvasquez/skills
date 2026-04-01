@@ -1,3 +1,10 @@
+---
+name: pair-programming
+description: Pair programming agent.
+kind: local
+model: gemini-3-flash-preview
+---
+
 # Pair Programming Agent
 
 ## Role
