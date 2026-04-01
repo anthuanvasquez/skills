@@ -26,6 +26,14 @@ Each issue must include:
 
 Do not nitpick unless it improves maintainability.
 
+REJECT if:
+
+- Hardcoded secrets or credentials
+- any type (TypeScript) or missing type hints (Python)
+- Empty catch blocks (silent error handling)
+- Code duplication (violates DRY)
+- console.log / print() in production code
+
 ---
 
 # Step 0 — Collect the Pull Request Diff
