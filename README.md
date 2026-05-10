@@ -1,16 +1,59 @@
 # Skills
 
-Repository to hold standardized guidance, agent rules, and scaffold templates for applying AI agents (Google Antigravity, Google Gemini & OpenCode) safely and productively in engineering workflows.
+Repository to hold standardized guidance, agent rules, and scaffold templates for applying AI agents (Google Gemini, GitHub Copilot, and PI) safely and productively in engineering workflows.
 
 ## Quick Start
 
-Initialize a new project with the agents configuration using the following command:
+Install globally with platform wiring prompts:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/anthuanvasquez/skills/main/install.sh | bash
 ```
 
-This will prompt you for a project name and configure **Google Antigravity**, **OpenCode** and **Google Gemini** automatically.
+Install non-interactive:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anthuanvasquez/skills/main/install.sh | bash -s -- --platforms gemini,copilot --non-interactive
+```
+
+Supported platform values (for both `--platforms` and the interactive prompt):
+
+- `none`
+- `gemini`
+- `copilot`
+- `pi`
+- `all`
+- Comma-separated combinations like `gemini,copilot`
+
+Default behavior installs `skills/` into `~/.agents/skills` and only wires selected platforms.
+
+## Dev Container Feature
+
+This repository ships a Dev Container Feature consumable from GHCR.
+
+The feature is designed to keep this repository as the source of truth:
+
+- Uses packaged feature files when available.
+- Uses local repository source during local development.
+- Falls back to cloning this repository when needed.
+
+Feature option:
+
+- `platforms` (string): `none|gemini|copilot|pi|all|csv`
+
+Example:
+
+```json
+{
+	"features": {
+		"ghcr.io/anthuanvasquez/skills/skills:latest": {
+			"platforms": "none"
+		}
+	}
+}
+```
+
+An example consumer exists at `.devcontainer/devcontainer.json`.
 
 ## Available Skills
 
@@ -71,6 +114,13 @@ Commands to streamline common development tasks.
 ```zsh
 docker build -t test-skills-installer .
 docker run -it -v $(pwd):/home/testuser/skills test-skills-installer bash
+
+# inside container
+cd /home/testuser/skills
+./install.sh --platforms gemini --non-interactive
+./test-install.sh
+# or explicit
+./test-install.sh --platforms gemini
 ```
 
 ## License
