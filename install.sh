@@ -1,98 +1,140 @@
 #!/bin/bash
 
+set -euo pipefail
+
 REPO_URL="https://github.com/anthuanvasquez/skills.git"
 TEMP_DIR="/tmp/skills-temp-$(date +%s)"
 GLOBAL_SKILLS_DIR="$HOME/.agents/skills"
+PLATFORMS="${PLATFORMS:-}"
+NON_INTERACTIVE=0
+SOURCE_DIR_OVERRIDE=""
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+usage() {
+  echo "Usage: $0 [--platforms <none|gemini|copilot|pi|all|csv>] [--non-interactive] [--source-dir <path>]"
+  echo ""
+  echo "Examples:"
+  echo "  $0"
+  echo "  $0 --platforms all --non-interactive"
+  echo "  PLATFORMS=gemini,copilot $0 --non-interactive"
+}
 
-echo -e "${BLUE}=== AI Skills Global Bootstrapper ===${NC}"
+parse_args() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --platforms)
+        if [ $# -lt 2 ]; then
+          echo "Missing value for --platforms"
+          exit 1
+        fi
+        PLATFORMS="$2"
+        shift 2
+        ;;
+      --non-interactive)
+        NON_INTERACTIVE=1
+        shift
+        ;;
+      --source-dir)
+        if [ $# -lt 2 ]; then
+          echo "Missing value for --source-dir"
+          exit 1
+        fi
+        SOURCE_DIR_OVERRIDE="$2"
+        shift 2
+        ;;
+      --help|-h)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+}
 
-echo -e "\n${BLUE}Fetching configuration files...${NC}"
+interactive_platform_prompt() {
+  echo ""
+  echo "Which AI platforms do you want to configure?"
+  echo "- none"
+  echo "- gemini"
+  echo "- copilot"
+  echo "- pi"
+  echo "- all"
+  echo "You can also combine values, for example: gemini,copilot"
+  read -r -p "Select platforms: " OPTIONS
 
-if [ -d "skills" ] && [ -d "workflows" ]; then
-  SOURCE_DIR="$(pwd)"
-  echo "Using local source files."
-else
-  git clone --depth 1 "$REPO_URL" "$TEMP_DIR" > /dev/null 2>&1
-  
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Error cloning repository. Please check REPO_URL in script.${NC}"
-    exit 1
+  if [ -z "${OPTIONS// }" ]; then
+    PLATFORMS="none"
+    return
   fi
-  SOURCE_DIR="$TEMP_DIR"
-fi
 
-echo -e "\n${BLUE}Installing skills globally to ${GLOBAL_SKILLS_DIR}...${NC}"
+  local mapped=""
+  local token
+  local normalized
+  normalized="$(printf '%s' "$OPTIONS" | tr '[:upper:]' '[:lower:]')"
+  normalized="${normalized//,/ }"
 
-mkdir -p "$HOME/.agents"
+  for token in $normalized; do
+    case "$token" in
+      0) token="none" ;;
+      1) token="gemini" ;;
+      2) token="copilot" ;;
+      3) token="pi" ;;
+      4) token="all" ;;
+    esac
 
-if [ -d "$GLOBAL_SKILLS_DIR" ]; then
-  rm -rf "$GLOBAL_SKILLS_DIR"
-fi
+    if [ -z "$mapped" ]; then
+      mapped="$token"
+    else
+      mapped="$mapped,$token"
+    fi
+  done
 
-cp -r "$SOURCE_DIR/skills" "$GLOBAL_SKILLS_DIR"
-echo -e "${GREEN}Global skills installed!${NC}"
+  PLATFORMS="$mapped"
+}
 
-echo -e "\n${BLUE}Which AI platforms do you want to configure? (Space-separated, e.g. '1 2', or '4' for all)${NC}"
-echo "1) Google Gemini CLI"
-echo "2) Google Antigravity"
-echo "3) OpenCode"
-echo "4) All of the above"
-read -p "Select options: " OPTIONS
+load_core() {
+  local source_dir=""
 
-setup_platform() {
-  local PLATFORM_NAME=$1
-  local TARGET_DIR=$2
-  local SKILLS_LINK=$3
-  local AGENTS_FILE=$4
-    
-  echo "  -> Configuring $PLATFORM_NAME..."
-  mkdir -p "$TARGET_DIR"
-    
-  if [ -L "$SKILLS_LINK" ] || [ -d "$SKILLS_LINK" ]; then
-    rm -rf "$SKILLS_LINK"
+  if [ -n "$SOURCE_DIR_OVERRIDE" ]; then
+    source_dir="$SOURCE_DIR_OVERRIDE"
+  elif [ -d "skills" ] && [ -d "prompts" ] && [ -f "scripts/install-core.sh" ]; then
+    source_dir="$(pwd)"
+    echo "Using local source files."
+  else
+    git clone --depth 1 "$REPO_URL" "$TEMP_DIR" > /dev/null 2>&1
+    source_dir="$TEMP_DIR"
   fi
-  ln -s "$GLOBAL_SKILLS_DIR" "$SKILLS_LINK"
-    
-  # Only copy AGENTS.md if a target path was provided
-  if [ -n "$AGENTS_FILE" ] && [ -f "$SOURCE_DIR/AGENTS.md" ]; then
-    cp "$SOURCE_DIR/AGENTS.md" "$AGENTS_FILE"
-  fi
-  
-  if [ "$PLATFORM_NAME" == "Google Gemini CLI" ] && [ -d "$SOURCE_DIR/commands" ]; then
-    cp -r "$SOURCE_DIR/commands" "$TARGET_DIR/"
+
+  # shellcheck source=/dev/null
+  . "$source_dir/scripts/install-core.sh"
+  SKILLS_SOURCE_DIR="$source_dir"
+}
+
+cleanup() {
+  if [ -d "$TEMP_DIR" ]; then
+    rm -rf "$TEMP_DIR"
   fi
 }
 
-for OPT in $OPTIONS; do
-  case $OPT in
-    1) 
-      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/AGENTS.md"
-      ;;
-    2) 
-      # Pass empty string for AGENTS_FILE to skip copying it for Antigravity
-      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" ""
-      ;;
-    3) 
-      setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
-      ;;
-    4)
-      setup_platform "Google Gemini CLI" "$HOME/.gemini" "$HOME/.gemini/skills" "$HOME/.gemini/AGENTS.md"
-      setup_platform "Google Antigravity" "$HOME/.gemini/antigravity" "$HOME/.gemini/antigravity/skills" ""
-      setup_platform "OpenCode" "$HOME/.config/opencode" "$HOME/.config/opencode/skills" "$HOME/.config/opencode/AGENTS.md"
-      break
-      ;;
-  esac
-done
+main() {
+  parse_args "$@"
+  trap cleanup EXIT
+  load_core
 
-if [ "$SOURCE_DIR" == "$TEMP_DIR" ]; then
-  rm -rf "$TEMP_DIR"
-fi
+  if [ -z "$PLATFORMS" ] && [ "$NON_INTERACTIVE" -eq 0 ]; then
+    interactive_platform_prompt
+  fi
 
-echo -e "\n${GREEN}✅ Installation complete!${NC}"
+  if [ -z "$PLATFORMS" ]; then
+    PLATFORMS="none"
+  fi
 
+  skills_install_from_source "$SKILLS_SOURCE_DIR" "$PLATFORMS" "$GLOBAL_SKILLS_DIR"
+  echo ""
+  echo "✅ Installation complete"
+}
+
+main "$@"
