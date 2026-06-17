@@ -107,7 +107,6 @@ Do NOT rewrite blindly
 
 Switch to Orchestrator Agent ONLY if:
 - Task is large (multi-module feature)
-- Requires SDD workflow
 - Needs parallel execution
 - User explicitly asks
 

@@ -67,7 +67,6 @@ Skills focused on the development lifecycle and git automation.
 | **Changelog Generator** | Automated customer-facing release notes from commit history. |
 | **Git Commit** | Conventional commits with intelligent staging and message generation. |
 | **Issue Creation** | GitHub issue creation workflow (Bug Reports, Feature Requests). |
-| **SDD Suite** | Full Spec-Driven Development flow (Init, Explore, Propose, Spec, Design, Tasks, Apply, Verify, Archive). |
 | **Skill Registry** | Scans and generates project skill registry for orchestrator access. |
 | **Second Brain Architect** | Expert guidance for notes taking and knowledge generation. |
 
