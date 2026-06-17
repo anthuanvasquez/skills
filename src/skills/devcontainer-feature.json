@@ -1,6 +1,6 @@
 {
   "id": "skills",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "name": "Skills",
   "description": "Installs global AI skills to ~/.agents/skills and optionally wires Gemini, Copilot, and PI.",
   "documentationURL": "https://github.com/anthuanvasquez/skills",
